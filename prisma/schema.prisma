@@ -1,0 +1,285 @@
+// Prisma Schema for Matchdays Backend
+// Database: Supabase PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User Model
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  
+  // Profile
+  name      String?
+  lastName  String?
+  birthDate DateTime?
+  country   String?
+  phone     String?
+  avatar    String?
+  
+  // Dashboard & Gamification
+  level               Int     @default(1)
+  experience          Int     @default(0)
+  totalPoints         Int     @default(0)
+  reputationScore     Float   @default(0)
+  subscriptionTier    String  @default("free") // free, basic, premium, vip
+  subscriptionExpiry  DateTime?
+  
+  // Seller stats
+  rating              Float   @default(0)
+  reviews             Int     @default(0)
+  sales               Int     @default(0)
+  positivePercentage  Float   @default(100)
+  avgShippingTime     String  @default("2-3 days")
+  
+  // Security
+  isVerified          Boolean @default(false)
+  status              String  @default("active") // active, suspended, banned
+  role                String  @default("user") // user, admin
+  
+  // Activity tracking
+  lastLogin           DateTime?
+  lastActivity        DateTime?
+  lastIP              String?
+  failedLoginAttempts Int      @default(0)
+  accountLocked       Boolean  @default(false)
+  lockUntil           DateTime?
+  
+  // Stripe
+  stripeCustomerId         String?
+  stripeAccountId          String?
+  stripeOnboardingComplete Boolean @default(false)
+  
+  // JWT Refresh Token
+  refreshToken String?
+  
+  // Relations
+  createdAuctions Auction[] @relation("SellerAuctions")
+  wonAuctions     Auction[] @relation("WinnerAuctions")
+  bids            Bid[]
+  loginHistory    LoginHistory[]
+  warnings        Warning[]
+  bans            Ban[]
+  moderationLogs  ModerationLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
+
+// Login History Model - Track all login attempts
+model LoginHistory {
+  id        String   @id @default(uuid())
+  
+  // User info
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  // Login details
+  success   Boolean  // true = successful login, false = failed attempt
+  ipAddress String
+  userAgent String?  // Browser/device info
+  location  String?  // Country/city if available
+  
+  // Failure reason (if failed)
+  failureReason String? // "wrong_password", "account_locked", "account_banned", etc.
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("login_history")
+}
+
+// Warning Model - Track user warnings
+model Warning {
+  id        String   @id @default(uuid())
+  
+  // User who received warning
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  // Warning details
+  reason    String   // Reason for warning
+  description String? // Detailed description
+  severity  String   @default("low") // low, medium, high, critical
+  
+  // Admin who issued warning
+  issuedBy  String   // Admin user ID
+  issuedByName String // Admin username for display
+  
+  // Status
+  active    Boolean  @default(true) // Can be revoked
+  revokedAt DateTime?
+  revokedBy String?
+  revokeReason String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([active])
+  @@map("warnings")
+}
+
+// Ban Model - Track temporary and permanent bans
+model Ban {
+  id        String   @id @default(uuid())
+  
+  // User who is banned
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  // Ban details
+  type      String   // "temporary", "permanent"
+  reason    String   // Reason for ban
+  description String? // Detailed description
+  
+  // Timing (for temporary bans)
+  startDate DateTime @default(now())
+  endDate   DateTime? // null for permanent bans
+  
+  // Admin who issued ban
+  issuedBy  String   // Admin user ID
+  issuedByName String // Admin username for display
+  
+  // Status
+  active    Boolean  @default(true)
+  revokedAt DateTime?
+  revokedBy String?
+  revokeReason String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([active])
+  @@index([type])
+  @@map("bans")
+}
+
+// Moderation Log - Track all moderation actions
+model ModerationLog {
+  id        String   @id @default(uuid())
+  
+  // Target user
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  // Action details
+  action    String   // "warning_issued", "ban_issued", "ban_revoked", "warning_revoked", "account_suspended", etc.
+  category  String   // "warning", "ban", "account_status", "other"
+  reason    String
+  details   String?  // JSON string with additional details
+  
+  // Admin who performed action
+  performedBy String // Admin user ID
+  performedByName String // Admin username
+  
+  // Related records
+  warningId String?
+  banId     String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([category])
+  @@index([createdAt])
+  @@map("moderation_logs")
+}
+
+// Auction Model
+model Auction {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  
+  // Category & Type
+  category     String // Premier League, La Liga, etc.
+  itemType     String @default("shirt") // shirt, shoes, pants, accessory
+  listingType  String @default("auction") // auction, buy_now
+  
+  // Details
+  team         String
+  season       String
+  size         String
+  condition    String
+  manufacturer String?
+  playerName   String?
+  playerNumber String?
+  
+  // Images
+  images String[]
+  
+  // Pricing
+  startingBid  Decimal @db.Decimal(10, 2)
+  currentBid   Decimal @db.Decimal(10, 2)
+  bidCount     Int     @default(0)
+  bidIncrement Decimal @default(5) @db.Decimal(10, 2)
+  buyNowPrice  Decimal? @db.Decimal(10, 2)
+  
+  // Timing
+  startTime DateTime
+  endTime   DateTime
+  
+  // Status
+  status   String  @default("active") // upcoming, active, ended, cancelled
+  verified Boolean @default(false)
+  rare     Boolean @default(false)
+  featured Boolean @default(false)
+  views    Int     @default(0)
+  
+  // Shipping
+  shippingCost Decimal @default(0) @db.Decimal(10, 2)
+  shippingTime String  @default("3-5 business days")
+  shippingFrom String
+  
+  // Relations
+  seller   User   @relation("SellerAuctions", fields: [sellerId], references: [id])
+  sellerId String
+  
+  winner   User?   @relation("WinnerAuctions", fields: [winnerId], references: [id])
+  winnerId String?
+  
+  bids Bid[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([status])
+  @@index([category])
+  @@index([team])
+  @@index([itemType])
+  @@index([listingType])
+  @@map("auctions")
+}
+
+// Bid Model
+model Bid {
+  id     String  @id @default(uuid())
+  amount Decimal @db.Decimal(10, 2)
+  
+  // Relations
+  auction   Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  auctionId String
+  
+  bidder   User   @relation(fields: [bidderId], references: [id])
+  bidderId String
+  
+  createdAt DateTime @default(now())
+  
+  @@index([auctionId])
+  @@index([bidderId])
+  @@map("bids")
+}
