@@ -1,11 +1,10 @@
 import { Module } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { Bid } from "./entities/bid.entity";
 import { BidsService } from "./bids.service";
 import { BidsController } from "./bids.controller";
+import { PrismaModule } from "../../prisma/prisma.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Bid])],
+  imports: [PrismaModule],
   controllers: [BidsController],
   providers: [BidsService],
   exports: [BidsService],

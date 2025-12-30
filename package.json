@@ -31,7 +31,6 @@
     "@nestjs/schedule": "^6.1.0",
     "@nestjs/swagger": "^7.1.17",
     "@nestjs/throttler": "^6.5.0",
-    "@nestjs/typeorm": "^10.0.1",
     "@nestjs/websockets": "^10.0.0",
     "@prisma/client": "^6.19.1",
     "@supabase/supabase-js": "^2.39.0",
@@ -55,7 +54,6 @@
     "sharp": "^0.33.1",
     "socket.io": "^4.6.0",
     "stripe": "^14.10.0",
-    "typeorm": "^0.3.17",
     "winston": "^3.11.0"
   },
   "devDependencies": {
