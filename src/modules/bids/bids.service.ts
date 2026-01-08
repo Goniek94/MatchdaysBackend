@@ -43,32 +43,6 @@ export class BidsService {
     });
   }
 
-  async create(bidData: {
-    amount: number;
-    auctionId: string;
-    bidderId: string;
-  }) {
-    return this.prisma.bid.create({
-      data: {
-        amount: bidData.amount,
-        auctionId: bidData.auctionId,
-        bidderId: bidData.bidderId,
-      },
-      include: {
-        bidder: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        auction: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-      },
-    });
-  }
+  // Note: Bid creation is handled by AuctionsService.placeBid()
+  // which includes full validation, transactions, and auction updates
 }
